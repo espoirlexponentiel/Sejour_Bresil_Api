@@ -1,0 +1,36 @@
+# Dependencies
+/vendor/
+/node_modules/
+
+# Environment and Local Config
+.env
+.env.backup
+.env.local
+.env.production
+Homestead.json
+Homestead.yaml
+auth.json
+
+# Storage and Caches
+/storage/*.key
+/public/storage
+/public/hot
+/public/build
+/.phpunit.cache
+
+# Logs
+npm-debug.log
+yarn-error.log
+*.log
+
+# IDE & OS Specific
+/.fleet
+/.idea
+/.vscode
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
