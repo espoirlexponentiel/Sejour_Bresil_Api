@@ -8,6 +8,7 @@ use App\Models\AssistanceRequest;
 use App\Models\Demarche;
 use App\Models\User;
 use App\Services\CloudinaryService;
+use App\Services\StripeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,8 +17,76 @@ use Illuminate\Support\Str;
 
 class AssistanceRequestController extends Controller
 {
-    public function __construct(private readonly CloudinaryService $cloudinary)
+    public function __construct(
+        private readonly CloudinaryService $cloudinary,
+        private readonly StripeService $stripe
+    ) {
+    }
+
+    /**
+     * Public: Return Stripe publishable key for frontend card element initialization.
+     */
+    public function stripeConfig(): JsonResponse
     {
+        return response()->json([
+            'success' => true,
+            'publishable_key' => $this->stripe->getPublishableKey(),
+        ]);
+    }
+
+    /**
+     * Public: Create a Stripe PaymentIntent for an assistance procedure card payment.
+     */
+    public function createStripeIntent(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'demarche_id' => 'nullable|integer',
+            'demarche_title' => 'nullable|string|max:255',
+            'full_name' => 'nullable|string|max:255',
+            'email' => 'required|email|max:255',
+        ]);
+
+        $demarche = !empty($validated['demarche_id']) ? Demarche::find($validated['demarche_id']) : null;
+        $amount = $demarche !== null ? (float) ($demarche->assistance_price ?? 50.00) : 50.00;
+
+        if ($amount <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cette démarche est gratuite et ne nécessite pas de paiement.',
+            ], 422);
+        }
+
+        $amountCents = (int) round($amount * 100);
+        if ($amountCents < 50) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Le montant minimum pour un paiement par carte Stripe est de R$ 0,50.',
+            ], 422);
+        }
+
+        $title = $demarche ? $demarche->title : ($validated['demarche_title'] ?? 'Assistance Séjour au Brésil');
+
+        $intent = $this->stripe->createPaymentIntent(
+            amountCents: $amountCents,
+            currency: 'brl',
+            metadata: [
+                'demarche_id' => (string) ($demarche?->id ?? ''),
+                'demarche_title' => Str::limit($title, 100),
+                'customer_name' => Str::limit((string) ($validated['full_name'] ?? ''), 100),
+                'customer_email' => strtolower(trim($validated['email'])),
+            ],
+            receiptEmail: strtolower(trim($validated['email'])),
+            description: "Assistance : {$title}"
+        );
+
+        return response()->json([
+            'success' => true,
+            'client_secret' => $intent['client_secret'],
+            'payment_intent_id' => $intent['id'],
+            'amount' => $amount,
+            'currency' => 'brl',
+            'publishable_key' => $this->stripe->getPublishableKey(),
+        ]);
     }
 
     /**
@@ -39,6 +108,7 @@ class AssistanceRequestController extends Controller
             'details' => 'nullable|string|max:5000',
             'payment_method' => 'nullable|in:pix,card,free',
             'payment_reference' => 'nullable|string|max:255',
+            'stripe_payment_intent_id' => 'nullable|string|max:255',
             'card_last4' => 'nullable|string|max:4',
             'payment_proof' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:10240',
             'files' => 'nullable|array',
@@ -48,8 +118,43 @@ class AssistanceRequestController extends Controller
         ]);
 
         $email = strtolower(trim($validated['email']));
+        $demarche = !empty($validated['demarche_id']) ? Demarche::find($validated['demarche_id']) : null;
+        $demarcheId = $demarche ? $demarche->id : null;
+        $amount = $demarche !== null ? (float) ($demarche->assistance_price ?? 50.00) : 50.00;
+        $paymentMethod = $validated['payment_method'] ?? ($amount <= 0 ? 'free' : 'pix');
 
-        $result = DB::transaction(function () use ($request, $validated, $email) {
+        $verifiedStripeReference = null;
+        if ($amount > 0 && $paymentMethod === 'card') {
+            $piId = trim((string) ($validated['stripe_payment_intent_id'] ?? ''));
+            if ($piId === '') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Le paiement par carte Stripe est requis avant l’envoi du dossier.',
+                ], 422);
+            }
+
+            if (AssistanceRequest::where('payment_reference', $piId)->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ce paiement Stripe a déjà été utilisé pour une autre demande.',
+                ], 422);
+            }
+
+            $intent = $this->stripe->retrievePaymentIntent($piId);
+            $expectedCents = (int) round($amount * 100);
+            $receivedCents = (int) ($intent['amount_received'] ?? $intent['amount'] ?? 0);
+
+            if (($intent['status'] ?? '') !== 'succeeded' || $receivedCents < $expectedCents || strtolower((string) ($intent['currency'] ?? '')) !== 'brl') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Le paiement par carte Stripe n’a pas encore été validé ou le montant ne correspond pas.',
+                ], 422);
+            }
+
+            $verifiedStripeReference = $intent['id'];
+        }
+
+        $result = DB::transaction(function () use ($request, $validated, $email, $demarcheId, $amount, $paymentMethod, $verifiedStripeReference) {
             $user = User::where('email', $email)->first();
 
             if (!$user) {
@@ -61,17 +166,12 @@ class AssistanceRequestController extends Controller
                 ]);
             }
 
-            $demarche = !empty($validated['demarche_id']) ? Demarche::find($validated['demarche_id']) : null;
-            $demarcheId = $demarche ? $demarche->id : null;
-            $amount = $demarche !== null ? (float) ($demarche->assistance_price ?? 50.00) : 50.00;
-
             // Generate unique tracking code
             do {
                 $code = 'AS-' . date('Y') . '-' . strtoupper(Str::random(5));
             } while (AssistanceRequest::where('tracking_code', $code)->exists());
 
             // Resolve payment method & status
-            $paymentMethod = $validated['payment_method'] ?? ($amount <= 0 ? 'free' : 'pix');
             $paymentStatus = 'pending_payment';
             $paymentReference = $validated['payment_reference'] ?? null;
             $paymentProofUrl = null;
@@ -80,9 +180,8 @@ class AssistanceRequestController extends Controller
                 $paymentMethod = 'free';
                 $paymentStatus = 'paid';
             } elseif ($paymentMethod === 'card') {
-                $last4 = preg_replace('/\D/', '', (string) ($validated['card_last4'] ?? ''));
                 $paymentStatus = 'paid';
-                $paymentReference = 'CARD-' . ($last4 ? "••••{$last4}-" : '') . strtoupper(Str::random(6));
+                $paymentReference = $verifiedStripeReference;
             } elseif ($paymentMethod === 'pix') {
                 $paymentStatus = 'awaiting_verification';
                 if (empty($paymentReference)) {

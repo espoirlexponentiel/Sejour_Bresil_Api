@@ -29,7 +29,9 @@ Route::get('/health', function () {
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/user/email-login', [AuthController::class, 'emailLogin']);
 
-// Dépôt public d'une demande d'assistance (avec upload Cloudinary)
+// Dépôt public d'une demande d'assistance (avec upload Cloudinary & paiement Stripe)
+Route::get('/payments/stripe/config', [AssistanceRequestController::class, 'stripeConfig']);
+Route::post('/payments/stripe/create-intent', [AssistanceRequestController::class, 'createStripeIntent']);
 Route::post('/assistance-requests', [AssistanceRequestController::class, 'store']);
 
 Route::middleware('auth:sanctum')->group(function () {
