@@ -13,6 +13,7 @@ class Demarche extends Model
         'step_number',
         'priority',
         'icon',
+        'image_url',
         'title',
         'subtitle',
         'description',

@@ -50,6 +50,7 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 // Démarches administratives (CPF, Titre de séjour, etc.)
+Route::post('/demarches/upload-image', [DemarcheController::class, 'uploadImage']);
 Route::apiResource('demarches', DemarcheController::class);
 
 // Annuaire des centres d'accueil et assistance par ville (CRAI, DPU, associations...)

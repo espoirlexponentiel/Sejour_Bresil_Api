@@ -4,11 +4,16 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Demarche;
+use App\Services\CloudinaryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class DemarcheController extends Controller
 {
+    public function __construct(
+        private readonly CloudinaryService $cloudinary
+    ) {
+    }
     /**
      * Display a listing of demarches.
      */
@@ -41,6 +46,7 @@ class DemarcheController extends Controller
             'step_number' => 'nullable|string|max:50',
             'priority' => 'nullable|string|max:50',
             'icon' => 'nullable|string|max:50',
+            'image_url' => 'nullable|string|max:2048',
             'title' => 'required|string|max:255',
             'subtitle' => 'nullable|string|max:255',
             'description' => 'required|string',
@@ -105,6 +111,7 @@ class DemarcheController extends Controller
             'step_number' => 'sometimes|string|max:50',
             'priority' => 'sometimes|string|max:50',
             'icon' => 'sometimes|string|max:50',
+            'image_url' => 'nullable|string|max:2048',
             'title' => 'sometimes|required|string|max:255',
             'subtitle' => 'nullable|string|max:255',
             'description' => 'sometimes|required|string',
@@ -155,6 +162,40 @@ class DemarcheController extends Controller
             'success' => true,
             'message' => 'Démarche supprimée avec succès',
         ]);
+    }
+
+    /**
+     * Upload a cover image for a demarche card to Cloudinary (Admin).
+     */
+    public function uploadImage(Request $request): JsonResponse
+    {
+        $request->validate([
+            'image' => 'required|file|mimes:jpg,jpeg,png,webp,gif,avif|max:10240',
+        ]);
+
+        $file = $request->file('image');
+        if (!$file || !$file->isValid()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Fichier image invalide ou trop volumineux pour PHP.',
+            ], 422);
+        }
+
+        try {
+            $uploadResult = $this->cloudinary->upload($file, 'sejour_bresil/demarches');
+
+            return response()->json([
+                'success' => true,
+                'url' => $uploadResult['secure_url'],
+                'public_id' => $uploadResult['public_id'],
+                'storage' => 'cloudinary',
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l\'envoi vers Cloudinary : ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }
 
