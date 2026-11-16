@@ -33,6 +33,7 @@ Route::post('/user/email-login', [AuthController::class, 'emailLogin']);
 Route::get('/payments/stripe/config', [AssistanceRequestController::class, 'stripeConfig']);
 Route::post('/payments/stripe/create-intent', [AssistanceRequestController::class, 'createStripeIntent']);
 Route::post('/assistance-requests', [AssistanceRequestController::class, 'store']);
+Route::post('/assistance-requests/confirm-payment', [AssistanceRequestController::class, 'confirmPayment']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {

@@ -35,7 +35,7 @@ class AssistanceRequestController extends Controller
     }
 
     /**
-     * Public: Create a Stripe PaymentIntent for an assistance procedure card payment.
+     * Public: Create a Stripe PaymentIntent for an assistance or prestation procedure card payment.
      */
     public function createStripeIntent(Request $request): JsonResponse
     {
@@ -43,28 +43,45 @@ class AssistanceRequestController extends Controller
             'demarche_id' => 'nullable|integer',
             'demarche_title' => 'nullable|string|max:255',
             'full_name' => 'nullable|string|max:255',
-            'email' => 'required|email|max:255',
+            'email' => 'nullable|email|max:255',
+            'amount' => 'nullable|numeric|min:0.5',
+            'tracking_code' => 'nullable|string|max:60',
+            'request_id' => 'nullable|integer',
         ]);
 
-        $demarche = !empty($validated['demarche_id']) ? Demarche::find($validated['demarche_id']) : null;
-        $amount = $demarche !== null ? (float) ($demarche->assistance_price ?? 50.00) : 50.00;
-
-        if ($amount <= 0) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cette démarche est gratuite et ne nécessite pas de paiement.',
-            ], 422);
+        $assistanceRequest = null;
+        if (!empty($validated['request_id'])) {
+            $assistanceRequest = AssistanceRequest::find($validated['request_id']);
+        } elseif (!empty($validated['tracking_code'])) {
+            $assistanceRequest = AssistanceRequest::where('tracking_code', $validated['tracking_code'])->first();
         }
 
-        $amountCents = (int) round($amount * 100);
-        if ($amountCents < 50) {
+        $email = $validated['email'] ?? ($assistanceRequest?->email ?? 'client@sejour-bresil.org');
+        $demarche = !empty($validated['demarche_id']) ? Demarche::find($validated['demarche_id']) : null;
+
+        if ($request->filled('amount') && (float) $request->amount >= 0.5) {
+            $amount = (float) $request->amount;
+        } elseif ($assistanceRequest && (float) $assistanceRequest->amount > 0) {
+            $amount = (float) $assistanceRequest->amount;
+        } elseif ($demarche !== null && (float) ($demarche->assistance_price ?? 0) > 0) {
+            $amount = (float) $demarche->assistance_price;
+        } else {
+            $amount = 50.00;
+        }
+
+        if ($amount < 0.50) {
             return response()->json([
                 'success' => false,
                 'message' => 'Le montant minimum pour un paiement par carte Stripe est de R$ 0,50.',
             ], 422);
         }
 
-        $title = $demarche ? $demarche->title : ($validated['demarche_title'] ?? 'Assistance Séjour au Brésil');
+        $amountCents = (int) round($amount * 100);
+        $title = $assistanceRequest?->demarche_title
+            ?? ($demarche ? $demarche->title : ($validated['demarche_title'] ?? 'Prestation Séjour au Brésil'));
+
+        $customerName = $validated['full_name']
+            ?? ($assistanceRequest?->full_name ?? 'Client Séjour Brésil');
 
         $intent = $this->stripe->createPaymentIntent(
             amountCents: $amountCents,
@@ -72,11 +89,12 @@ class AssistanceRequestController extends Controller
             metadata: [
                 'demarche_id' => (string) ($demarche?->id ?? ''),
                 'demarche_title' => Str::limit($title, 100),
-                'customer_name' => Str::limit((string) ($validated['full_name'] ?? ''), 100),
-                'customer_email' => strtolower(trim($validated['email'])),
+                'tracking_code' => (string) ($assistanceRequest?->tracking_code ?? ($validated['tracking_code'] ?? '')),
+                'customer_name' => Str::limit((string) $customerName, 100),
+                'customer_email' => strtolower(trim($email)),
             ],
-            receiptEmail: strtolower(trim($validated['email'])),
-            description: "Assistance : {$title}"
+            receiptEmail: strtolower(trim($email)),
+            description: "Séjour au Brésil : {$title}"
         );
 
         return response()->json([
@@ -106,7 +124,7 @@ class AssistanceRequestController extends Controller
             'city_country' => 'nullable|string|max:255',
             'purpose' => 'required|string|max:500',
             'details' => 'nullable|string|max:5000',
-            'payment_method' => 'nullable|in:pix,card,free',
+            'payment_method' => 'nullable|string|max:50',
             'payment_reference' => 'nullable|string|max:255',
             'stripe_payment_intent_id' => 'nullable|string|max:255',
             'card_last4' => 'nullable|string|max:4',
@@ -118,13 +136,25 @@ class AssistanceRequestController extends Controller
         ]);
 
         $email = strtolower(trim($validated['email']));
-        $demarche = !empty($validated['demarche_id']) ? Demarche::find($validated['demarche_id']) : null;
+        $rawDemarcheId = !empty($validated['demarche_id']) ? (int) $validated['demarche_id'] : null;
+        $demarcheTitle = trim($validated['demarche_title']);
+        $isPrestation = ($rawDemarcheId === 999)
+            || Str::startsWith(strtolower($demarcheTitle), 'prestation')
+            || $request->input('category') === 'prestation';
+
+        $demarche = (!$isPrestation && $rawDemarcheId) ? Demarche::find($rawDemarcheId) : null;
         $demarcheId = $demarche ? $demarche->id : null;
-        $amount = $demarche !== null ? (float) ($demarche->assistance_price ?? 50.00) : 50.00;
-        $paymentMethod = $validated['payment_method'] ?? ($amount <= 0 ? 'free' : 'pix');
+
+        if ($isPrestation) {
+            $amount = 0.00;
+            $paymentMethod = $validated['payment_method'] ?? 'sur_devis';
+        } else {
+            $amount = $demarche !== null ? (float) ($demarche->assistance_price ?? 50.00) : 50.00;
+            $paymentMethod = $validated['payment_method'] ?? ($amount <= 0 ? 'free' : 'pix');
+        }
 
         $verifiedStripeReference = null;
-        if ($amount > 0 && $paymentMethod === 'card') {
+        if (!$isPrestation && $amount > 0 && $paymentMethod === 'card') {
             $piId = trim((string) ($validated['stripe_payment_intent_id'] ?? ''));
             if ($piId === '') {
                 return response()->json([
@@ -154,7 +184,7 @@ class AssistanceRequestController extends Controller
             $verifiedStripeReference = $intent['id'];
         }
 
-        $result = DB::transaction(function () use ($request, $validated, $email, $demarcheId, $amount, $paymentMethod, $verifiedStripeReference) {
+        $result = DB::transaction(function () use ($request, $validated, $email, $demarcheId, $demarcheTitle, $amount, $paymentMethod, $isPrestation, $verifiedStripeReference) {
             $user = User::where('email', $email)->first();
 
             if (!$user) {
@@ -166,9 +196,10 @@ class AssistanceRequestController extends Controller
                 ]);
             }
 
-            // Generate unique tracking code
+            // Generate unique tracking code (PS- for prestations, AS- for assistance)
+            $codePrefix = $isPrestation ? 'PS-' : 'AS-';
             do {
-                $code = 'AS-' . date('Y') . '-' . strtoupper(Str::random(5));
+                $code = $codePrefix . date('Y') . '-' . strtoupper(Str::random(5));
             } while (AssistanceRequest::where('tracking_code', $code)->exists());
 
             // Resolve payment method & status
@@ -176,7 +207,10 @@ class AssistanceRequestController extends Controller
             $paymentReference = $validated['payment_reference'] ?? null;
             $paymentProofUrl = null;
 
-            if ($amount <= 0) {
+            if ($isPrestation) {
+                $paymentStatus = 'pending_payment';
+                $paymentReference = $paymentReference ?? ('DEVIS-' . $code);
+            } elseif ($amount <= 0) {
                 $paymentMethod = 'free';
                 $paymentStatus = 'paid';
             } elseif ($paymentMethod === 'card') {
@@ -200,7 +234,7 @@ class AssistanceRequestController extends Controller
                 'tracking_code' => $code,
                 'user_id' => $user->id,
                 'demarche_id' => $demarcheId,
-                'demarche_title' => trim($validated['demarche_title']),
+                'demarche_title' => $demarcheTitle,
                 'full_name' => trim($validated['full_name']),
                 'email' => $email,
                 'phone' => $validated['phone'] ?? null,
@@ -310,6 +344,24 @@ class AssistanceRequestController extends Controller
             $query->where('demarche_id', (int) $request->demarche_id);
         }
 
+        if ($request->filled('category')) {
+            if ($request->category === 'prestations') {
+                $query->where(function ($q) {
+                    $q->where('demarche_id', 999)
+                      ->orWhere('demarche_title', 'like', 'Prestation%')
+                      ->orWhere('tracking_code', 'like', 'PS-%');
+                });
+            } elseif ($request->category === 'demarches') {
+                $query->where(function ($q) {
+                    $q->where(function ($sub) {
+                        $sub->whereNull('demarche_id')
+                            ->orWhere('demarche_id', '!=', 999);
+                    })->where('demarche_title', 'not like', 'Prestation%')
+                      ->where('tracking_code', 'not like', 'PS-%');
+                });
+            }
+        }
+
         if ($request->filled('search')) {
             $s = '%' . trim($request->search) . '%';
             $query->where(function ($q) use ($s) {
@@ -323,11 +375,27 @@ class AssistanceRequestController extends Controller
 
         $items = $query->orderByDesc('created_at')->get();
 
+        $demarchesCount = AssistanceRequest::where(function ($q) {
+            $q->where(function ($sub) {
+                $sub->whereNull('demarche_id')
+                    ->orWhere('demarche_id', '!=', 999);
+            })->where('demarche_title', 'not like', 'Prestation%')
+              ->where('tracking_code', 'not like', 'PS-%');
+        })->count();
+
+        $prestationsCount = AssistanceRequest::where(function ($q) {
+            $q->where('demarche_id', 999)
+              ->orWhere('demarche_title', 'like', 'Prestation%')
+              ->orWhere('tracking_code', 'like', 'PS-%');
+        })->count();
+
         return response()->json([
             'success' => true,
             'count' => $items->count(),
             'stats' => [
                 'total' => AssistanceRequest::count(),
+                'demarches_total' => $demarchesCount,
+                'prestations_total' => $prestationsCount,
                 'pending' => AssistanceRequest::where('status', 'pending')->count(),
                 'in_review' => AssistanceRequest::where('status', 'in_review')->count(),
                 'action_required' => AssistanceRequest::where('status', 'action_required')->count(),
@@ -359,6 +427,7 @@ class AssistanceRequestController extends Controller
         $validated = $request->validate([
             'status' => 'required|in:pending,in_review,action_required,completed,rejected',
             'payment_status' => 'nullable|in:pending_payment,awaiting_verification,paid,refunded',
+            'amount' => 'nullable|numeric|min:0',
             'admin_feedback' => 'nullable|string|max:5000',
             'attachment' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:10240',
         ]);
@@ -378,6 +447,9 @@ class AssistanceRequestController extends Controller
         if (!empty($validated['payment_status'])) {
             $assistanceRequest->payment_status = $validated['payment_status'];
         }
+        if (isset($validated['amount'])) {
+            $assistanceRequest->amount = (float) $validated['amount'];
+        }
         $assistanceRequest->admin_feedback = $validated['admin_feedback'] ?? $assistanceRequest->admin_feedback;
         $assistanceRequest->responded_by = $user->id;
         $assistanceRequest->responded_at = now();
@@ -387,6 +459,58 @@ class AssistanceRequestController extends Controller
             'success' => true,
             'message' => 'Retour enregistré et transmis à l\'usager.',
             'data' => $assistanceRequest->fresh(['documents', 'demarche']),
+        ]);
+    }
+
+    /**
+     * Public / User: Confirm payment for an assistance request (Pix proof upload or Stripe confirmation).
+     */
+    public function confirmPayment(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'request_id' => 'required|integer',
+            'payment_method' => 'nullable|string|in:pix,card',
+            'stripe_payment_intent_id' => 'nullable|string|max:255',
+            'card_last4' => 'nullable|string|max:4',
+            'proof_file' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:10240',
+        ]);
+
+        $item = AssistanceRequest::find($validated['request_id']);
+        if (!$item) {
+            return response()->json(['success' => false, 'message' => 'Dossier introuvable.'], 404);
+        }
+
+        $method = $validated['payment_method'] ?? 'pix';
+
+        if ($request->hasFile('proof_file') && $request->file('proof_file')->isValid()) {
+            $upload = $this->cloudinary->upload($request->file('proof_file'), "sejour_bresil/assistance/{$item->tracking_code}/payments");
+            $item->payment_proof_url = $upload['secure_url'];
+            $item->payment_proof_public_id = $upload['public_id'];
+        }
+
+        if ($method === 'pix') {
+            $item->payment_method = 'pix';
+            if ($item->payment_status !== 'paid') {
+                $item->payment_status = 'awaiting_verification';
+            }
+        } elseif ($method === 'card') {
+            $item->payment_method = 'card';
+            $item->payment_status = 'paid';
+            if (!empty($validated['stripe_payment_intent_id'])) {
+                $item->stripe_payment_intent_id = $validated['stripe_payment_intent_id'];
+                $item->payment_reference = $validated['stripe_payment_intent_id'];
+            }
+            if (!empty($validated['card_last4'])) {
+                $item->card_last4 = $validated['card_last4'];
+            }
+        }
+
+        $item->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Paiement enregistré avec succès.',
+            'data' => $item->fresh(['documents', 'demarche']),
         ]);
     }
 }
