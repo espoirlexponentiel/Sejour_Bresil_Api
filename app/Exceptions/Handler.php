@@ -44,5 +44,21 @@ class Handler extends ExceptionHandler
         $this->reportable(function (Throwable $e) {
             //
         });
+
+        $this->renderable(function (Throwable $e, $request) {
+            if ($request->is('api/*') || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                    'error' => $e->getMessage(),
+                    'file' => config('app.debug') ? $e->getFile() : null,
+                    'line' => config('app.debug') ? $e->getLine() : null,
+                ], 500, [
+                    'Access-Control-Allow-Origin' => '*',
+                    'Access-Control-Allow-Methods' => '*',
+                    'Access-Control-Allow-Headers' => '*',
+                ]);
+            }
+        });
     }
 }
