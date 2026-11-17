@@ -1,0 +1,12 @@
+.git
+.github
+tests
+node_modules
+phpunit.xml
+.env
+.env.example
+.phpunit.result.cache
+storage/logs/*.log
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*

@@ -12,16 +12,16 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('demarches', function (Blueprint $table) {
-            $table->decimal('assistance_price', 10, 2)->default(50.00)->after('cost');
+            $table->decimal('assistance_price', 10, 2)->default(50.00);
         });
 
         Schema::table('assistance_requests', function (Blueprint $table) {
-            $table->decimal('amount', 10, 2)->default(0.00)->after('details');
-            $table->string('currency', 10)->default('BRL')->after('amount');
-            $table->string('payment_method', 30)->nullable()->after('currency');
-            $table->string('payment_status', 30)->default('pending_payment')->after('payment_method');
-            $table->string('payment_reference')->nullable()->after('payment_status');
-            $table->string('payment_proof_url')->nullable()->after('payment_reference');
+            $table->decimal('amount', 10, 2)->default(0.00);
+            $table->string('currency', 10)->default('BRL');
+            $table->string('payment_method', 30)->nullable();
+            $table->string('payment_status', 30)->default('pending_payment');
+            $table->string('payment_reference')->nullable();
+            $table->string('payment_proof_url')->nullable();
         });
     }
 

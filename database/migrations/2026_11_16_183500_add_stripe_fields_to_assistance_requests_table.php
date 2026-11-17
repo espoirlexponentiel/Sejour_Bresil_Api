@@ -12,9 +12,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('assistance_requests', function (Blueprint $table) {
-            $table->string('stripe_payment_intent_id', 255)->nullable()->after('payment_reference');
-            $table->string('card_last4', 4)->nullable()->after('stripe_payment_intent_id');
-            $table->string('payment_proof_public_id', 255)->nullable()->after('payment_proof_url');
+            $table->string('stripe_payment_intent_id', 255)->nullable();
+            $table->string('card_last4', 4)->nullable();
+            $table->string('payment_proof_public_id', 255)->nullable();
         });
     }
 
