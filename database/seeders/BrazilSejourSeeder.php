@@ -402,6 +402,211 @@ class BrazilSejourSeeder extends Seeder
             ]
         );
 
+        // 3. CARTEIRA DE TRABALHO (CTPS DIGITAL) - LIVRET DE TRAVAIL
+        $ctpsQuestions = [
+            [
+                'id' => 'q_has_cpf',
+                'question' => '1. Avez-vous déjà votre numéro de CPF régularisé ?',
+                'subtitle' => 'La Carteira de Trabalho Digital est désormais entièrement indexée sur votre CPF.',
+                'options' => [
+                    [
+                        'id' => 'cpf_yes',
+                        'label' => 'Oui, je possède déjà mon numéro de CPF',
+                        'detail' => 'Parfait. Votre numéro de CTPS sera exactement identique à votre numéro de CPF.'
+                    ],
+                    [
+                        'id' => 'cpf_no',
+                        'label' => 'Pas encore, je n\'ai pas de CPF',
+                        'detail' => 'Important : Vous devez obligatoirement valider l\'Étape 01 (CPF) avant de créer votre CTPS.'
+                    ]
+                ]
+            ],
+            [
+                'id' => 'q_govbr',
+                'question' => '2. Avez-vous déjà créé votre compte d\'accès fédéral Gov.br ?',
+                'subtitle' => 'Le compte Gov.br permet d\'accéder à tous les services publics brésiliens.',
+                'options' => [
+                    [
+                        'id' => 'govbr_yes',
+                        'label' => 'Oui, mon compte Gov.br est actif',
+                        'detail' => 'Vous pouvez vous connecter directement sur l\'application mobile CTPS Digital.'
+                    ],
+                    [
+                        'id' => 'govbr_no',
+                        'label' => 'Non, je n\'ai pas encore de compte Gov.br',
+                        'detail' => 'La création est immédiate et gratuite en ligne sur gov.br avec votre CPF.'
+                    ]
+                ]
+            ],
+            [
+                'id' => 'q_contract',
+                'question' => '3. Quel type d\'emploi visez-vous au Brésil ?',
+                'subtitle' => 'Permet d\'identifier la réglementation applicable à votre future embauche.',
+                'options' => [
+                    [
+                        'id' => 'clt_standard',
+                        'label' => 'Contrat de travail salarié en entreprise (CLT standard)',
+                        'detail' => 'Contrat classique : salaire mensuel, congés payés, 13ème mois et FGTS.'
+                    ],
+                    [
+                        'id' => 'domestic_work',
+                        'label' => 'Travail domestique déclaré (eSocial Doméstico)',
+                        'detail' => 'Régime protecteur avec déclaration obligatoire de l\'employeur sur le portail eSocial.'
+                    ],
+                    [
+                        'id' => 'internship_temp',
+                        'label' => 'Stage professionnel ou contrat temporaire',
+                        'detail' => 'Encadré par la convention de stage (Termo de Compromisso) et législation du travail.'
+                    ]
+                ]
+            ]
+        ];
+
+        $ctpsChecklist = [
+            [
+                'id' => 'doc_cpf_active',
+                'label' => 'Numéro de CPF valide et actif (Receita Federal)',
+                'isMandatory' => true,
+                'description' => 'Votre CPF sert d\'identifiant unique pour votre livret de travail numérique.',
+                'tip' => 'Aucun livret physique n\'est nécessaire : votre CPF est votre numéro de livret.'
+            ],
+            [
+                'id' => 'doc_id_migrant',
+                'label' => 'Pièce d\'identité ou titre de séjour (RNM / CRNM / Protocole)',
+                'isMandatory' => true,
+                'description' => 'Document d\'identité en cours de validité prouvant votre situation légale sur le territoire.',
+                'tip' => 'Le protocole de demandeur d\'asile (CONARE) autorise légalement l\'émission de la CTPS.'
+            ],
+            [
+                'id' => 'doc_govbr_login',
+                'label' => 'Identifiant et mot de passe de votre compte Gov.br',
+                'isMandatory' => true,
+                'description' => 'Nécessaire pour vous authentifier sur l\'application mobile ou le portail web.',
+                'tip' => 'Un niveau de compte Bronze suffit pour consulter et activer votre CTPS.'
+            ],
+            [
+                'id' => 'doc_app_download',
+                'label' => 'Application officielle "Carteira de Trabalho Digital"',
+                'isMandatory' => false,
+                'description' => 'Disponible gratuitement sur Google Play Store (Android) et Apple App Store (iOS).',
+                'tip' => 'Permet de suivre en direct vos déclarations de contrat, salaires et cotisations INSS.'
+            ]
+        ];
+
+        $ctpsSteps = [
+            [
+                'number' => 1,
+                'title' => 'Créer votre compte gratuit sur le portail Gov.br',
+                'badge' => 'Étape préalable',
+                'description' => 'Rendez-vous sur acesso.gov.br ou téléchargez l\'application Gov.br. Renseignez votre numéro de CPF et complétez les informations demandées pour définir votre mot de passe.',
+                'action_label' => 'Accéder au portail Gov.br',
+                'action_url' => 'https://acesso.gov.br'
+            ],
+            [
+                'number' => 2,
+                'title' => 'Télécharger l\'application "Carteira de Trabalho Digital"',
+                'badge' => 'Application officielle',
+                'description' => 'Installez l\'application officielle du Ministère du Travail sur votre smartphone Android ou iPhone.',
+                'action_label' => 'Page officielle du Ministère',
+                'action_url' => 'https://www.gov.br/pt-br/servicos/obter-a-carteira-de-trabalho'
+            ],
+            [
+                'number' => 3,
+                'title' => 'Activer votre livret en 1 clic avec votre CPF',
+                'badge' => 'Activation immédiate',
+                'description' => 'Connectez-vous avec votre compte Gov.br. Vos informations d\'état civil apparaissent automatiquement. Votre livret numérique est instantanément actif et prêt à l\'emploi.',
+                'action_label' => 'Consulter en ligne',
+                'action_url' => 'https://servicos.mte.gov.br'
+            ],
+            [
+                'number' => 4,
+                'title' => 'Transmettre votre CPF à votre futur employeur',
+                'badge' => 'Embauche CLT',
+                'description' => 'Lors de votre embauche, communiquez simplement votre numéro de CPF à l\'employeur. Il enregistrera votre contrat via le portail gouvernemental eSocial en moins de 48h.',
+                'action_label' => null,
+                'action_url' => null
+            ]
+        ];
+
+        $ctpsFaqs = [
+            [
+                'question' => 'Un étranger sans titre définitif peut-il obtenir la CTPS ?',
+                'answer' => 'Oui ! La législation brésilienne garantit le droit au travail pour les étrangers en situation régulière, y compris les demandeurs d\'asile munis d\'un protocole CONARE ou les titulaires de visas temporaires. Il suffit d\'avoir un CPF valide.'
+            ],
+            [
+                'question' => 'Existe-t-il encore un livret de travail physique en papier bleu ?',
+                'answer' => 'Non. Depuis la Loi nº 13.874/2019, la Carteira de Trabalho physique en carton bleu n\'est plus délivrée pour les nouveaux travailleurs. La version 100% numérique a exactement la même valeur légale et votre numéro de CPF remplace l\'ancien numéro de livret.'
+            ],
+            [
+                'question' => 'Quels droits me garantit la CTPS déclarée (régime CLT) ?',
+                'answer' => 'La déclaration CLT garantit : le salaire minimum légal ou conventionnel, le 13ème mois de salaire, 30 jours de congés payés avec prime de 1/3, le fonds de garantie FGTS (8% payés par l\'employeur) et la couverture sociale INSS (maladie, accident, retraite).'
+            ],
+            [
+                'question' => 'Combien coûte l\'émission ou l\'utilisation de la CTPS Digital ?',
+                'answer' => 'Elle est 100% gratuite. L\'application et l\'accès aux services du Ministère du Travail et de l\'Emploi ne font l\'objet d\'aucune taxe ni d\'aucun frais gouvernemental.'
+            ]
+        ];
+
+        $ctpsPurposes = [
+            [
+                'id' => 'ctps_activate',
+                'fr' => 'Activer ma Carteira de Trabalho Digital avec mon CPF',
+                'pt' => 'Ativar minha Carteira de Trabalho Digital com meu CPF',
+                'en' => 'Activate my Digital Work Card with my CPF'
+            ],
+            [
+                'id' => 'govbr_account_help',
+                'fr' => 'Créer ou débloquer mon compte Gov.br (Prata/Ouro)',
+                'pt' => 'Criar ou desbloquear minha conta Gov.br (Prata/Ouro)',
+                'en' => 'Create or unlock my Gov.br account (Prata/Ouro)'
+            ],
+            [
+                'id' => 'clt_rights_check',
+                'fr' => 'Vérifier mon contrat CLT et droits avec mon employeur',
+                'pt' => 'Verificar contrato CLT e direitos trabalhistas',
+                'en' => 'Verify CLT contract and labor rights with employer'
+            ],
+            [
+                'id' => 'migrant_work_rights',
+                'fr' => 'Débloquer mon droit au travail en tant qu\'étranger / réfugié',
+                'pt' => 'Regularizar direito ao trabalho para migrante / refugiado',
+                'en' => 'Regularize right to work as migrant / refugee'
+            ],
+            [
+                'id' => 'other',
+                'fr' => 'Autre demande liée au livret de travail ou contrat CLT',
+                'pt' => 'Outra necessidade de trabalho ou contrat CLT',
+                'en' => 'Other need related to work card or CLT contract'
+            ]
+        ];
+
+        $existingCtpsPrice = Demarche::where('step_number', 'ÉTAPE 03')->value('assistance_price');
+
+        Demarche::updateOrCreate(
+            ['step_number' => 'ÉTAPE 03'],
+            [
+                'priority' => 'Priorité 3',
+                'icon' => 'briefcase',
+                'image_url' => '/images/demarche-ctps.jpg?v=2',
+                'title' => 'Carteira de Trabalho (CTPS)',
+                'subtitle' => 'Obtenir votre livret de travail officiel pour travailler légalement au Brésil',
+                'description' => 'Le passeport indispensable pour tout emploi salarié au Brésil (contrat CLT). Désormais 100% numérique (CTPS Digital) via votre numéro CPF, elle garantit vos droits sociaux, congés payés, 13ème mois et cotisations retraite (INSS).',
+                'delay' => 'Immédiat via l’application Carteira de Trabalho Digital',
+                'cost' => '100% Gratuit (Service public fédéral)',
+                'assistance_price' => $existingCtpsPrice !== null ? $existingCtpsPrice : 50.00,
+                'button_text' => 'Voir le guide officiel',
+                'guide_url' => 'https://www.gov.br/pt-br/servicos/obter-a-carteira-de-trabalho',
+                'official_source' => 'Ministério do Trabalho e Emprego (Governo Federal)',
+                'questions' => $ctpsQuestions,
+                'checklist' => $ctpsChecklist,
+                'steps' => $ctpsSteps,
+                'faqs' => $ctpsFaqs,
+                'assistance_purposes' => $ctpsPurposes,
+                'status' => 'active',
+                'order' => 3,
+            ]
+        );
+
         // 2. CENTRES D'ACCUEIL
         // 3. UTILISATEURS & RÔLES (ADMIN & UTILISATEUR)
         User::updateOrCreate(

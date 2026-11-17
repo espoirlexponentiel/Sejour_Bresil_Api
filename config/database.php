@@ -59,7 +59,9 @@ return [
             'strict' => true,
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
-                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA') ?: (file_exists(storage_path('certs/isrgrootx1.pem')) ? storage_path('certs/isrgrootx1.pem') : null),
+                PDO::MYSQL_ATTR_SSL_CA => file_exists(storage_path('certs/isrgrootx1.pem')) 
+                    ? realpath(storage_path('certs/isrgrootx1.pem')) 
+                    : (env('MYSQL_ATTR_SSL_CA') && file_exists(base_path(env('MYSQL_ATTR_SSL_CA'))) ? realpath(base_path(env('MYSQL_ATTR_SSL_CA'))) : env('MYSQL_ATTR_SSL_CA')),
                 PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false,
             ]) : [],
         ],
