@@ -58,12 +58,14 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
-            'options' => (extension_loaded('pdo_mysql') && !in_array(env('DB_HOST', '127.0.0.1'), ['127.0.0.1', 'localhost'])) ? array_filter([
+            'options' => (extension_loaded('pdo_mysql') && !in_array(env('DB_HOST', 'gateway01.ap-northeast-1.prod.aws.tidbcloud.com'), ['127.0.0.1', 'localhost'])) ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => file_exists(storage_path('certs/isrgrootx1.pem')) 
                     ? realpath(storage_path('certs/isrgrootx1.pem')) 
-                    : (env('MYSQL_ATTR_SSL_CA') && file_exists(base_path(env('MYSQL_ATTR_SSL_CA'))) ? realpath(base_path(env('MYSQL_ATTR_SSL_CA'))) : env('MYSQL_ATTR_SSL_CA')),
+                    : (env('MYSQL_ATTR_SSL_CA') && file_exists(base_path(env('MYSQL_ATTR_SSL_CA'))) ? realpath(base_path(env('MYSQL_ATTR_SSL_CA'))) : (file_exists('/etc/ssl/certs/ca-certificates.crt') ? '/etc/ssl/certs/ca-certificates.crt' : true)),
                 PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false,
-            ]) : [],
+            ], function ($value) {
+                return !is_null($value);
+            }) : [],
         ],
 
         'pgsql' => [
