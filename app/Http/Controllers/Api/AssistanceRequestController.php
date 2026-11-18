@@ -398,6 +398,7 @@ class AssistanceRequestController extends Controller
                 'prestations_total' => $prestationsCount,
                 'pending' => AssistanceRequest::where('status', 'pending')->count(),
                 'in_review' => AssistanceRequest::where('status', 'in_review')->count(),
+                'eligible_payment' => AssistanceRequest::where('status', 'eligible_payment')->count(),
                 'action_required' => AssistanceRequest::where('status', 'action_required')->count(),
                 'completed' => AssistanceRequest::where('status', 'completed')->count(),
                 'paid_count' => AssistanceRequest::where('payment_status', 'paid')->count(),
@@ -425,7 +426,7 @@ class AssistanceRequestController extends Controller
         }
 
         $validated = $request->validate([
-            'status' => 'required|in:pending,in_review,action_required,completed,rejected',
+            'status' => 'required|in:pending,in_review,eligible_payment,action_required,completed,rejected',
             'payment_status' => 'nullable|in:pending_payment,awaiting_verification,paid,refunded',
             'amount' => 'nullable|numeric|min:0',
             'admin_feedback' => 'nullable|string|max:5000',

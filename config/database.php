@@ -58,7 +58,7 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
-            'options' => extension_loaded('pdo_mysql') ? array_filter([
+            'options' => (extension_loaded('pdo_mysql') && !in_array(env('DB_HOST', '127.0.0.1'), ['127.0.0.1', 'localhost'])) ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => file_exists(storage_path('certs/isrgrootx1.pem')) 
                     ? realpath(storage_path('certs/isrgrootx1.pem')) 
                     : (env('MYSQL_ATTR_SSL_CA') && file_exists(base_path(env('MYSQL_ATTR_SSL_CA'))) ? realpath(base_path(env('MYSQL_ATTR_SSL_CA'))) : env('MYSQL_ATTR_SSL_CA')),
