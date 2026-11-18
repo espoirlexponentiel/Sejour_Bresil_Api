@@ -9,6 +9,23 @@ use Throwable;
 class ServeCommand extends BaseServeCommand
 {
     /**
+     * Get the full server command.
+     * Fixes: "error: -S cannot be combined with script file server.php" on Wasmer / phpix
+     *
+     * @return array
+     */
+    protected function serverCommand()
+    {
+        return [
+            (new \Symfony\Component\Process\PhpExecutableFinder)->find(false),
+            '-S',
+            $this->host().':'.$this->port(),
+            '-t',
+            base_path('public'),
+        ];
+    }
+
+    /**
      * Get the port for the command.
      * Fixes: "Unsupported operand types: string + int" on PHP 8 / Wasmer
      *
