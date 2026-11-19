@@ -470,9 +470,11 @@ class AssistanceRequestController extends Controller
     {
         $validated = $request->validate([
             'request_id' => 'required|integer',
-            'payment_method' => 'nullable|string|in:pix,card',
+            'payment_method' => 'nullable|string|in:pix,card,flooz,tmoney',
             'stripe_payment_intent_id' => 'nullable|string|max:255',
             'card_last4' => 'nullable|string|max:4',
+            'transaction_ref' => 'nullable|string|max:255',
+            'phone_number' => 'nullable|string|max:50',
             'proof_file' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:10240',
         ]);
 
@@ -493,6 +495,17 @@ class AssistanceRequestController extends Controller
             $item->payment_method = 'pix';
             if ($item->payment_status !== 'paid') {
                 $item->payment_status = 'awaiting_verification';
+            }
+        } elseif ($method === 'flooz' || $method === 'tmoney') {
+            $item->payment_method = $method;
+            if ($item->payment_status !== 'paid') {
+                $item->payment_status = 'awaiting_verification';
+            }
+            if (!empty($validated['transaction_ref'])) {
+                $item->payment_reference = $validated['transaction_ref'];
+            }
+            if (!empty($validated['phone_number'])) {
+                $item->notes = trim(($item->notes ? $item->notes . "\n" : '') . "Mobile Money ($method): " . $validated['phone_number']);
             }
         } elseif ($method === 'card') {
             $item->payment_method = 'card';

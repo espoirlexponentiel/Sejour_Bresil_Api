@@ -15,7 +15,7 @@ class BrazilSejourSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. DÉMARCHES ADMINISTRATIVES AVEC GUIDES COMPLETS (Questions, Checklist, Étapes, FAQ)
+        // 1. QUESTIONS CPF
         $cpfQuestions = [
             [
                 'id' => 'q_location',
@@ -163,31 +163,7 @@ class BrazilSejourSeeder extends Seeder
             ]
         ];
 
-        // Mise à jour ou création CPF
-        Demarche::updateOrCreate(
-            ['id' => 1],
-            [
-                'step_number' => 'ÉTAPE 01',
-                'priority' => 'Priorité 1',
-                'icon' => 'credit-card',
-                'title' => 'CPF (Numéro fiscal)',
-                'subtitle' => 'La clé de voûte de toute votre vie quotidienne et administrative au Brésil',
-                'description' => 'Indispensable dès le premier jour : acheter une puce téléphonique brésilienne, ouvrir un compte bancaire, louer un logement, payer instantanément avec Pix ou souscrire un contrat.',
-                'delay' => 'Immédiat en bureau · 24 à 72h en ligne',
-                'cost' => '100% Gratuit en ligne / par e-mail · 7,00 R$ en agence',
-                'button_text' => 'Voir le guide officiel',
-                'guide_url' => 'https://www.gov.br/receitafederal/pt-br/assuntos/meu-cpf',
-                'official_source' => 'Receita Federal do Brasil (Ministério da Fazenda)',
-                'questions' => $cpfQuestions,
-                'checklist' => $cpfChecklist,
-                'steps' => $cpfSteps,
-                'faqs' => $cpfFaqs,
-                'status' => 'active',
-                'order' => 1,
-            ]
-        );
-
-        // 1B. DÉMARCHE 2 : CRÉER UN COMPTE BANCAIRE AU BRÉSIL
+        // 2. QUESTIONS COMPTE BANCAIRE
         $bankQuestions = [
             [
                 'id' => 'q_bank_residency',
@@ -273,7 +249,7 @@ class BrazilSejourSeeder extends Seeder
                 'id' => 'doc_phone_br',
                 'label' => 'Numéro de téléphone mobile brésilien actif (+55)',
                 'isMandatory' => false,
-                'description' => 'Indispensable pour valider les codes SMS de sécurité et activer l\'application bancaire (Nubank, Inter, Itaú, Banco do Brasil).',
+                'description' => 'Indispensable pour valiter les codes SMS de sécurité et activer l\'application bancaire (Nubank, Inter, Itaú, Banco do Brasil).',
                 'tip' => 'Achetez d\'abord votre puce prépayée Vivo, Claro ou TIM à l\'aide de votre CPF.'
             ],
             [
@@ -327,7 +303,7 @@ class BrazilSejourSeeder extends Seeder
             ],
             [
                 'question' => 'Puis-je ouvrir un compte Nubank ou Banco Inter avec un visa touriste ?',
-                'answer' => "En règle générale, non. Les banques digitales de détail exigent une résidence légale au Brésil (CRNM/RNM ou protocole officiel) et une adresse locale. Pour un court séjour ou sans résidence, vous devez passer par une compte global multi-devises (ex: Wise) ou ouvrir une Conta de Não Residente (CDE)."
+                'answer' => "En règle générale, non. Les banques digitales de détail exigent une résidence légale au Brésil (CRNM/RNM ou protocole officiel) et une adresse locale. Pour un court séjour ou sans résidence, vous devez passer par un compte global multi-devises (ex: Wise) ou ouvrir une Conta de Não Residente (CDE)."
             ],
             [
                 'question' => 'Qu\'est-ce que le forfait gratuit « Serviços Essenciais » ?',
@@ -376,20 +352,48 @@ class BrazilSejourSeeder extends Seeder
             ]
         ];
 
-        $existingBankPrice = Demarche::where('step_number', 'ÉTAPE 02')->value('assistance_price');
+        // Nettoyer les anciens enregistrements en double ou orphelins
+        Demarche::whereNotIn('id', [1, 2])->delete();
 
+        // 1. Démarche CPF (ID 1)
         Demarche::updateOrCreate(
-            ['step_number' => 'ÉTAPE 02'],
+            ['id' => 1],
             [
+                'step_number' => '01',
+                'priority' => 'Priorité 1',
+                'icon' => 'credit-card',
+                'image_url' => '/images/demarche-cpf.jpg',
+                'title' => 'CPF',
+                'subtitle' => 'La clé de voûte de toute votre vie quotidienne et administrative au Brésil',
+                'description' => 'Indispensable dès le premier jour : acheter une puce téléphonique brésilienne, ouvrir un compte bancaire, louer un logement, payer instantanément avec Pix ou souscrire un contrat.',
+                'delay' => 'Immédiat en bureau · 24 à 72h en ligne',
+                'cost' => '100% Gratuit en ligne / par e-mail · 7,00 R$ en agence',
+                'button_text' => 'Voir le guide officiel',
+                'guide_url' => 'https://www.gov.br/receitafederal/pt-br/assuntos/meu-cpf',
+                'official_source' => 'Receita Federal do Brasil (Ministério da Fazenda)',
+                'questions' => $cpfQuestions,
+                'checklist' => $cpfChecklist,
+                'steps' => $cpfSteps,
+                'faqs' => $cpfFaqs,
+                'status' => 'active',
+                'order' => 1,
+            ]
+        );
+
+        // 2. Démarche Compte Bancaire (ID 2)
+        Demarche::updateOrCreate(
+            ['id' => 2],
+            [
+                'step_number' => '02',
                 'priority' => 'Priorité 2',
                 'icon' => 'landmark',
-                'image_url' => '/images/demarche-banque.jpg?v=2',
-                'title' => 'Créer un compte bancaire',
+                'image_url' => '/images/demarche-banque.jpg',
+                'title' => 'Compte bancaire',
                 'subtitle' => 'Ouvrir votre compte courant ou digital au Brésil et activer Pix',
                 'description' => 'Indispensable après votre CPF : recevez votre salaire (CLT), payez instantanément par Pix sans frais, encaissez ou effectuez des virements locaux et obtenez votre carte de débit brésilienne.',
                 'delay' => 'Immédiat sur app (banque digitale) · 3 à 7j en agence',
                 'cost' => '0 R$ (Banque digitale & Serviços Essenciais BCB)',
-                'assistance_price' => $existingBankPrice !== null ? $existingBankPrice : 50.00,
+                'assistance_price' => 50.00,
                 'button_text' => 'Voir le guide officiel',
                 'guide_url' => 'https://www.bcb.gov.br/meubc/faqs/s/abertura-e-manutencao-de-conta',
                 'official_source' => 'Banco Central do Brasil (Resolução CMN nº 4.753/2019)',
@@ -403,336 +407,8 @@ class BrazilSejourSeeder extends Seeder
             ]
         );
 
-        // 3. TITRE DE SÉJOUR CRNM (POLÍCIA FEDERAL)
-        $crnmQuestions = [
-            [
-                'id' => 'q_crnm_type',
-                'question' => '1. Quel est le motif de votre séjour au Brésil ?',
-                'subtitle' => 'Le fondement légal détermine les pièces à fournir et les exemptions de taxe.',
-                'options' => [
-                    ['id' => 'visa_consular', 'label' => 'Titulaire d\'un visa consulaire dans mon passeport (Travail, Études, Famille)', 'detail' => 'Enregistrement obligatoire dans les 90 jours suivant votre première entrée au Brésil.'],
-                    ['id' => 'refugee_conare', 'label' => 'Demandeur d\'asile ou réfugié reconnu (CONARE)', 'detail' => 'Procédure gratuite : exemption totale légale de la taxe fédérale GRU.'],
-                    ['id' => 'family_reunion', 'label' => 'Regroupement familial ou conjoint(e) d\'un citoyen brésilien', 'detail' => 'Autorisation de résidence de plein droit avec pièces d\'état civil légalisées.']
-                ]
-            ],
-            [
-                'id' => 'q_crnm_city',
-                'question' => '2. Dans quel État brésilien effectuerez-vous la démarche ?',
-                'subtitle' => 'Les rendez-vous dépendent des postes d\'immigration de la Polícia Federal.',
-                'options' => [
-                    ['id' => 'sp_rio', 'label' => 'São Paulo (SP) ou Rio de Janeiro (RJ)', 'detail' => 'Forte affluence : prise de rendez-vous SISMIGRA conseillée 3 à 4 semaines à l\'avance.'],
-                    ['id' => 'other_states', 'label' => 'Autre État ou capitale régionale', 'detail' => 'Créneaux généralement disponibles sous 7 à 15 jours.']
-                ]
-            ]
-        ];
-
-        $crnmChecklist = [
-            ['id' => 'cdoc_passport', 'label' => 'Passeport original valide avec visa et tampon d\'entrée', 'isMandatory' => true, 'description' => 'Le passeport officiel présenté à l\'aéroport lors de votre arrivée au Brésil.', 'tip' => 'Vérifiez la lisibilité du tampon d\'entrée apposé par la Polícia Federal.'],
-            ['id' => 'cdoc_sismigra', 'label' => 'Formulaire officiel de demande Sismigra imprimé', 'isMandatory' => true, 'description' => 'Généré sur le portail de la Polícia Federal avec code-barres de protocole.', 'tip' => 'Imprimez 2 exemplaires pour le jour de votre rendez-vous biométrique.'],
-            ['id' => 'cdoc_gru', 'label' => 'Reçu de paiement de la taxe fédérale GRU (204,77 R$)', 'isMandatory' => true, 'description' => 'Payé via code-barres (Code recette 140449 - Carteira de Imigrante).', 'tip' => 'Les réfugiés et demandeurs d\'asile CONARE sont exemptés de cette taxe.'],
-            ['id' => 'cdoc_photos', 'label' => '2 photos d\'identité format 3x4 récentes sur fond blanc', 'isMandatory' => true, 'description' => 'Photos nettes, sans lunettes teintées ni chapeau.', 'tip' => 'Disponibles dans les commerces autour des postes de la Polícia Federal.'],
-            ['id' => 'cdoc_proof_address', 'label' => 'Justificatif de domicile au Brésil (- de 90 jours)', 'isMandatory' => true, 'description' => 'Facture, contrat de location ou déclaration d\'hébergement signée.', 'tip' => 'Si vous logez chez un particulier, une attestation d\'hébergement simple suffit.']
-        ];
-
-        $crnmSteps = [
-            [
-                'number' => 1,
-                'title' => 'Remplir le formulaire officiel Sismigra en ligne',
-                'badge' => 'Portail Polícia Federal',
-                'description' => 'Accédez au système Sismigra de la Polícia Federal. Renseignez vos données d\'état civil, votre visa et votre adresse au Brésil pour générer votre protocole de demande.',
-                'action_label' => 'Accéder au système Sismigra',
-                'action_url' => 'https://servicos.dpf.gov.br/sismigra-web/'
-            ],
-            [
-                'number' => 2,
-                'title' => 'Émettre et régler le bordereau de taxe fédérale GRU (204,77 R$)',
-                'badge' => 'Taxe fédérale (Code 140449)',
-                'description' => 'Générez la Guia de Recolhimento da União (GRU) sur le portail fédéral. Réglez-la dans une agence bancaire, sur votre application bancaire brésilienne ou aux Correios. (Les demandeurs d\'asile CONARE sont légalement exemptés).',
-                'action_label' => 'Générer le bordereau GRU',
-                'action_url' => 'https://servicos.dpf.gov.br/gruweb/gru?tipo=1'
-            ],
-            [
-                'number' => 3,
-                'title' => 'Prendre rendez-vous et se présenter au poste fédéral',
-                'badge' => 'Biométrie & Empreintes',
-                'description' => 'Réservez votre créneau sur l\'agenda Sismigra. Présentez-vous avec vos pièces originales. L\'agent prend vos empreintes et votre photo, puis vous remet un protocole officiel avec numéro RNM.',
-                'action_label' => 'Prendre rendez-vous Sismigra',
-                'action_url' => 'https://servicos.dpf.gov.br/sismigra-web/pages/agendamento/agendamento.jsf'
-            ],
-            [
-                'number' => 4,
-                'title' => 'Retirer votre carte plastique CRNM définitive',
-                'badge' => 'Titre officiel sécurisé',
-                'description' => 'Votre protocole papier est immédiatement valable pour travailler et vivre au Brésil. Votre carte plastique CRNM est généralement disponible au retrait sous 30 à 60 jours au même commissariat.',
-                'action_label' => 'Suivre l\'état d\'avancement de ma carte',
-                'action_url' => 'https://servicos.dpf.gov.br/sismigra-web/'
-            ]
-        ];
-
-        $crnmFaqs = [
-            ['question' => 'Puis-je travailler légalement avec le protocole papier en attendant la carte CRNM ?', 'answer' => 'Oui ! L\'article 155 du décret fédéral nº 9.199/2017 confère au protocole remis le jour de l\'entretien la même pleine valeur légale de titre de séjour sur tout le territoire brésilien.'],
-            ['question' => 'Quel est le délai pour s\'enregistrer après l\'arrivée au Brésil ?', 'answer' => 'Les titulaires d\'un visa consulaire (travail, études, nomade digital, famille) disposent légalement d\'un délai de 90 jours à compter de leur premier jour d\'entrée sur le territoire brésilien.'],
-            ['question' => 'Les demandeurs d\'asile et réfugiés doivent-ils payer la taxe de 204,77 R$ ?', 'answer' => 'Non. En vertu de l\'article 312 du décret fédéral 9.199/2017, la procédure de régularisation et l\'émission de la carte sont 100% gratuites pour les demandeurs de refuge et réfugiés reconnus CONARE.']
-        ];
-
-        $crnmPurposes = [
-            ['id' => 'crnm_first', 'fr' => 'Obtenir mon premier titre de séjour CRNM (visa consulaire ou regroupement)', 'pt' => 'Emitir primeira via de CRNM', 'en' => 'Issue first CRNM residence card'],
-            ['id' => 'crnm_renewal', 'fr' => 'Renouveler mon titre de séjour CRNM avant expiration', 'pt' => 'Renovação de CRNM', 'en' => 'Renew CRNM residence card'],
-            ['id' => 'crnm_refugee', 'fr' => 'Régularisation demandeur d\'asile ou réfugié CONARE', 'pt' => 'Regularização CONARE / refúgio', 'en' => 'Asylum seeker / refugee regularization'],
-            ['id' => 'crnm_appointment', 'fr' => 'Trouver un rendez-vous urgent Polícia Federal (Sismigra)', 'pt' => 'Agendamento Polícia Federal Sismigra', 'en' => 'Book urgent Federal Police appointment'],
-            ['id' => 'other', 'fr' => 'Autre demande liée au titre de séjour CRNM', 'pt' => 'Outra solicitação CRNM', 'en' => 'Other CRNM request']
-        ];
-
-        $existingCrnmPrice = Demarche::where('step_number', 'ÉTAPE 03')->value('assistance_price');
-
-        Demarche::updateOrCreate(
-            ['step_number' => 'ÉTAPE 03'],
-            [
-                'priority' => 'Priorité 3',
-                'icon' => 'shield',
-                'image_url' => '/images/demarche-crnm.jpg?v=2',
-                'title' => 'Titre de séjour (CRNM / RNM)',
-                'subtitle' => 'Enregistrement obligatoire auprès de la Polícia Federal pour résider au Brésil',
-                'description' => 'La pièce d’identité officielle pour tout étranger résidant au Brésil (ex-RNE). Elle atteste de votre statut légal (visa temporaire, regroupement familial, études, travail ou refuge), sécurise votre séjour et donne accès à tous vos droits civiques.',
-                'delay' => 'Rendez-vous Polícia Federal + 30 à 60j pour la carte physique (protocole immédiat)',
-                'cost' => '204,77 R$ (Taxe GRU fédérale · 100% Gratuit pour réfugiés/CONARE)',
-                'assistance_price' => $existingCrnmPrice !== null ? $existingCrnmPrice : 50.00,
-                'button_text' => 'Portail Polícia Federal',
-                'guide_url' => 'https://www.gov.br/pt-br/servicos/obter-autorizacao-de-residencia-e-carteira-de-registro-nacional-migratorio',
-                'official_source' => 'Polícia Federal & Ministério da Justiça e Segurança Pública',
-                'questions' => $crnmQuestions,
-                'checklist' => $crnmChecklist,
-                'steps' => $crnmSteps,
-                'faqs' => $crnmFaqs,
-                'assistance_purposes' => $crnmPurposes,
-                'status' => 'active',
-                'order' => 3,
-            ]
-        );
-
-        // 4. CARTEIRA DE TRABALHO (CTPS DIGITAL) - LIVRET DE TRAVAIL
-        $ctpsQuestions = [
-            [
-                'id' => 'q_has_cpf',
-                'question' => '1. Avez-vous déjà votre numéro de CPF régularisé ?',
-                'subtitle' => 'La Carteira de Trabalho Digital est désormais entièrement indexée sur votre CPF.',
-                'options' => [
-                    [
-                        'id' => 'cpf_yes',
-                        'label' => 'Oui, je possède déjà mon numéro de CPF',
-                        'detail' => 'Parfait. Votre numéro de CTPS sera exactement identique à votre numéro de CPF.'
-                    ],
-                    [
-                        'id' => 'cpf_no',
-                        'label' => 'Pas encore, je n\'ai pas de CPF',
-                        'detail' => 'Important : Vous devez obligatoirement valider l\'Étape 01 (CPF) avant de créer votre CTPS.'
-                    ]
-                ]
-            ],
-            [
-                'id' => 'q_govbr',
-                'question' => '2. Avez-vous déjà créé votre compte d\'accès fédéral Gov.br ?',
-                'subtitle' => 'Le compte Gov.br permet d\'accéder à tous les services publics brésiliens.',
-                'options' => [
-                    [
-                        'id' => 'govbr_yes',
-                        'label' => 'Oui, mon compte Gov.br est actif',
-                        'detail' => 'Vous pouvez vous connecter directement sur l\'application mobile CTPS Digital.'
-                    ],
-                    [
-                        'id' => 'govbr_no',
-                        'label' => 'Non, je n\'ai pas encore de compte Gov.br',
-                        'detail' => 'La création est immédiate et gratuite en ligne sur gov.br avec votre CPF.'
-                    ]
-                ]
-            ],
-            [
-                'id' => 'q_contract',
-                'question' => '3. Quel type d\'emploi visez-vous au Brésil ?',
-                'subtitle' => 'Permet d\'identifier la réglementation applicable à votre future embauche.',
-                'options' => [
-                    [
-                        'id' => 'clt_standard',
-                        'label' => 'Contrat de travail salarié en entreprise (CLT standard)',
-                        'detail' => 'Contrat classique : salaire mensuel, congés payés, 13ème mois et FGTS.'
-                    ],
-                    [
-                        'id' => 'domestic_work',
-                        'label' => 'Travail domestique déclaré (eSocial Doméstico)',
-                        'detail' => 'Régime protecteur avec déclaration obligatoire de l\'employeur sur le portail eSocial.'
-                    ],
-                    [
-                        'id' => 'internship_temp',
-                        'label' => 'Stage professionnel ou contrat temporaire',
-                        'detail' => 'Encadré par la convention de stage (Termo de Compromisso) et législation du travail.'
-                    ]
-                ]
-            ]
-        ];
-
-        $ctpsChecklist = [
-            [
-                'id' => 'doc_cpf_active',
-                'label' => 'Numéro de CPF valide et actif (Receita Federal)',
-                'isMandatory' => true,
-                'description' => 'Votre CPF sert d\'identifiant unique pour votre livret de travail numérique.',
-                'tip' => 'Aucun livret physique n\'est nécessaire : votre CPF est votre numéro de livret.'
-            ],
-            [
-                'id' => 'doc_id_migrant',
-                'label' => 'Pièce d\'identité ou titre de séjour (RNM / CRNM / Protocole)',
-                'isMandatory' => true,
-                'description' => 'Document d\'identité en cours de validité prouvant votre situation légale sur le territoire.',
-                'tip' => 'Le protocole de demandeur d\'asile (CONARE) autorise légalement l\'émission de la CTPS.'
-            ],
-            [
-                'id' => 'doc_govbr_login',
-                'label' => 'Identifiant et mot de passe de votre compte Gov.br',
-                'isMandatory' => true,
-                'description' => 'Nécessaire pour vous authentifier sur l\'application mobile ou le portail web.',
-                'tip' => 'Un niveau de compte Bronze suffit pour consulter et activer votre CTPS.'
-            ],
-            [
-                'id' => 'doc_app_download',
-                'label' => 'Application officielle "Carteira de Trabalho Digital"',
-                'isMandatory' => false,
-                'description' => 'Disponible gratuitement sur Google Play Store (Android) et Apple App Store (iOS).',
-                'tip' => 'Permet de suivre en direct vos déclarations de contrat, salaires et cotisations INSS.'
-            ]
-        ];
-
-        $ctpsSteps = [
-            [
-                'number' => 1,
-                'title' => 'Créer votre compte gratuit sur le portail Gov.br',
-                'badge' => 'Étape préalable',
-                'description' => 'Rendez-vous sur acesso.gov.br ou téléchargez l\'application Gov.br. Renseignez votre numéro de CPF et complétez les informations demandées pour définir votre mot de passe.',
-                'action_label' => 'Accéder au portail Gov.br',
-                'action_url' => 'https://acesso.gov.br'
-            ],
-            [
-                'number' => 2,
-                'title' => 'Télécharger l\'application "Carteira de Trabalho Digital"',
-                'badge' => 'Application officielle',
-                'description' => 'Installez l\'application officielle du Ministère du Travail sur votre smartphone Android ou iPhone.',
-                'action_label' => 'Page officielle du Ministère',
-                'action_url' => 'https://www.gov.br/pt-br/servicos/obter-a-carteira-de-trabalho'
-            ],
-            [
-                'number' => 3,
-                'title' => 'Activer votre livret en 1 clic avec votre CPF',
-                'badge' => 'Activation immédiate',
-                'description' => 'Connectez-vous avec votre compte Gov.br. Vos informations d\'état civil apparaissent automatiquement. Votre livret numérique est instantanément actif et prêt à l\'emploi.',
-                'action_label' => 'Consulter en ligne',
-                'action_url' => 'https://servicos.mte.gov.br'
-            ],
-            [
-                'number' => 4,
-                'title' => 'Transmettre votre CPF à votre futur employeur',
-                'badge' => 'Embauche CLT',
-                'description' => 'Lors de votre embauche, communiquez simplement votre numéro de CPF à l\'employeur. Il enregistrera votre contrat via le portail gouvernemental eSocial en moins de 48h.',
-                'action_label' => null,
-                'action_url' => null
-            ]
-        ];
-
-        $ctpsFaqs = [
-            [
-                'question' => 'Un étranger sans titre définitif peut-il obtenir la CTPS ?',
-                'answer' => 'Oui ! La législation brésilienne garantit le droit au travail pour les étrangers en situation régulière, y compris les demandeurs d\'asile munis d\'un protocole CONARE ou les titulaires de visas temporaires. Il suffit d\'avoir un CPF valide.'
-            ],
-            [
-                'question' => 'Existe-t-il encore un livret de travail physique en papier bleu ?',
-                'answer' => 'Non. Depuis la Loi nº 13.874/2019, la Carteira de Trabalho physique en carton bleu n\'est plus délivrée pour les nouveaux travailleurs. La version 100% numérique a exactement la même valeur légale et votre numéro de CPF remplace l\'ancien numéro de livret.'
-            ],
-            [
-                'question' => 'Quels droits me garantit la CTPS déclarée (régime CLT) ?',
-                'answer' => 'La déclaration CLT garantit : le salaire minimum légal ou conventionnel, le 13ème mois de salaire, 30 jours de congés payés avec prime de 1/3, le fonds de garantie FGTS (8% payés par l\'employeur) et la couverture sociale INSS (maladie, accident, retraite).'
-            ],
-            [
-                'question' => 'Combien coûte l\'émission ou l\'utilisation de la CTPS Digital ?',
-                'answer' => 'Elle est 100% gratuite. L\'application et l\'accès aux services du Ministère du Travail et de l\'Emploi ne font l\'objet d\'aucune taxe ni d\'aucun frais gouvernemental.'
-            ]
-        ];
-
-        $ctpsPurposes = [
-            [
-                'id' => 'ctps_activate',
-                'fr' => 'Activer ma Carteira de Trabalho Digital avec mon CPF',
-                'pt' => 'Ativar minha Carteira de Trabalho Digital com meu CPF',
-                'en' => 'Activate my Digital Work Card with my CPF'
-            ],
-            [
-                'id' => 'govbr_account_help',
-                'fr' => 'Créer ou débloquer mon compte Gov.br (Prata/Ouro)',
-                'pt' => 'Criar ou desbloquear minha conta Gov.br (Prata/Ouro)',
-                'en' => 'Create or unlock my Gov.br account (Prata/Ouro)'
-            ],
-            [
-                'id' => 'clt_rights_check',
-                'fr' => 'Vérifier mon contrat CLT et droits avec mon employeur',
-                'pt' => 'Verificar contrato CLT e direitos trabalhistas',
-                'en' => 'Verify CLT contract and labor rights with employer'
-            ],
-            [
-                'id' => 'migrant_work_rights',
-                'fr' => 'Débloquer mon droit au travail en tant qu\'étranger / réfugié',
-                'pt' => 'Regularizar direito ao trabalho para migrante / refugiado',
-                'en' => 'Regularize right to work as migrant / refugee'
-            ],
-            [
-                'id' => 'other',
-                'fr' => 'Autre demande liée au livret de travail ou contrat CLT',
-                'pt' => 'Outra necessidade de trabalho ou contrat CLT',
-                'en' => 'Other need related to work card or CLT contract'
-            ]
-        ];
-
-        $existingCtpsPrice = Demarche::where('step_number', 'ÉTAPE 04')->value('assistance_price');
-
-        Demarche::updateOrCreate(
-            ['step_number' => 'ÉTAPE 04'],
-            [
-                'priority' => 'Priorité 4',
-                'icon' => 'briefcase',
-                'image_url' => '/images/demarche-ctps.jpg?v=2',
-                'title' => 'Carteira de Trabalho (CTPS)',
-                'subtitle' => 'Obtenir votre livret de travail officiel pour travailler légalement au Brésil',
-                'description' => 'Le passeport indispensable pour tout emploi salarié au Brésil (contrat CLT). Désormais 100% numérique (CTPS Digital) via votre numéro CPF, elle garantit vos droits sociaux, congés payés, 13ème mois et cotisations retraite (INSS).',
-                'delay' => 'Immédiat via l’application Carteira de Trabalho Digital',
-                'cost' => '100% Gratuit (Service public fédéral)',
-                'assistance_price' => $existingCtpsPrice !== null ? $existingCtpsPrice : 50.00,
-                'button_text' => 'Voir le guide officiel',
-                'guide_url' => 'https://www.gov.br/pt-br/servicos/obter-a-carteira-de-trabalho',
-                'official_source' => 'Ministério do Trabalho e Emprego (Governo Federal)',
-                'questions' => $ctpsQuestions,
-                'checklist' => $ctpsChecklist,
-                'steps' => $ctpsSteps,
-                'faqs' => $ctpsFaqs,
-                'assistance_purposes' => $ctpsPurposes,
-                'status' => 'active',
-                'order' => 4,
-            ]
-        );
-
-        // 2. CENTRES D'ACCUEIL
-        // 3. UTILISATEURS & RÔLES (ADMIN & UTILISATEUR)
-        User::updateOrCreate(
-            ['email' => 'admin@sejour-bresil.org'],
-            [
-                'name' => 'Administrateur Fédéral',
-                'role' => 'admin',
-                'password' => Hash::make('admin2026'),
-            ]
-        );
-
-        User::updateOrCreate(
-            ['email' => 'user@sejour-bresil.org'],
-            [
-                'name' => 'Usager Migrant',
-                'role' => 'user',
-                'password' => Hash::make('user2026'),
-            ]
-        );
+        // Utilisateurs admin & test
+        User::updateOrCreate(['email' => 'admin@sejour-bresil.org'], ['name' => 'Administrateur Federal', 'role' => 'admin', 'password' => Hash::make('admin2026')]);
+        User::updateOrCreate(['email' => 'user@sejour-bresil.org'], ['name' => 'Usager Migrant', 'role' => 'user', 'password' => Hash::make('user2026')]);
     }
 }
