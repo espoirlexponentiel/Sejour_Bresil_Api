@@ -114,7 +114,7 @@ class AssistanceRequestController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'demarche_id' => 'nullable|integer',
+            'demarche_id' => 'nullable',
             'demarche_title' => 'required|string|max:255',
             'full_name' => 'required|string|max:255',
             'email' => 'required|email|max:255',
@@ -136,13 +136,15 @@ class AssistanceRequestController extends Controller
         ]);
 
         $email = strtolower(trim($validated['email']));
-        $rawDemarcheId = !empty($validated['demarche_id']) ? (int) $validated['demarche_id'] : null;
+        $rawDemarcheId = $request->input('demarche_id');
         $demarcheTitle = trim($validated['demarche_title']);
-        $isPrestation = ($rawDemarcheId === 999)
+        $isPrestation = ($rawDemarcheId === 999 || $rawDemarcheId === '999')
+            || (!empty($rawDemarcheId) && !is_numeric($rawDemarcheId))
             || Str::startsWith(strtolower($demarcheTitle), 'prestation')
             || $request->input('category') === 'prestation';
 
-        $demarche = (!$isPrestation && $rawDemarcheId) ? Demarche::find($rawDemarcheId) : null;
+        $numericDemarcheId = (is_numeric($rawDemarcheId) && (int) $rawDemarcheId !== 999) ? (int) $rawDemarcheId : null;
+        $demarche = (!$isPrestation && $numericDemarcheId) ? Demarche::find($numericDemarcheId) : null;
         $demarcheId = $demarche ? $demarche->id : null;
 
         if ($isPrestation) {
@@ -150,7 +152,7 @@ class AssistanceRequestController extends Controller
             $paymentMethod = $validated['payment_method'] ?? 'sur_devis';
         } else {
             $amount = $demarche !== null ? (float) ($demarche->assistance_price ?? 50.00) : 50.00;
-            $paymentMethod = $validated['payment_method'] ?? ($amount <= 0 ? 'free' : 'pix');
+            $paymentMethod = $validated['payment_method'] ?? ($amount <= 0 ? 'free' : 'apres_reponse');
         }
 
         $verifiedStripeReference = null;
@@ -222,12 +224,20 @@ class AssistanceRequestController extends Controller
                     $paymentReference = 'PIX-' . $code;
                 }
                 if ($request->hasFile('payment_proof') && $request->file('payment_proof')->isValid()) {
-                    $proofUpload = $this->cloudinary->upload(
-                        $request->file('payment_proof'),
-                        "sejour_bresil/assistance/{$code}/payment"
-                    );
-                    $paymentProofUrl = $proofUpload['secure_url'];
+                    try {
+                        $proofUpload = $this->cloudinary->upload(
+                            $request->file('payment_proof'),
+                            "sejour_bresil/assistance/{$code}/payment"
+                        );
+                        $paymentProofUrl = $proofUpload['secure_url'];
+                    } catch (\Throwable $proofErr) {
+                        \Log::warning("Upload payment proof local fallback: " . $proofErr->getMessage());
+                        $path = $request->file('payment_proof')->store("assistance/{$code}/payment", 'public');
+                        $paymentProofUrl = url('storage/' . $path);
+                    }
                 }
+            } else {
+                $paymentStatus = 'pending_payment';
             }
 
             $assistanceRequest = AssistanceRequest::create([
@@ -261,19 +271,32 @@ class AssistanceRequestController extends Controller
                     continue;
                 }
 
-                $uploadResult = $this->cloudinary->upload(
-                    $file,
-                    "sejour_bresil/assistance/{$code}"
-                );
+                try {
+                    $uploadResult = $this->cloudinary->upload(
+                        $file,
+                        "sejour_bresil/assistance/{$code}"
+                    );
+                    $fileUrl = $uploadResult['secure_url'];
+                    $publicId = $uploadResult['public_id'];
+                    $resourceType = $uploadResult['resource_type'];
+                    $originalName = $uploadResult['original_filename'];
+                } catch (\Throwable $fileErr) {
+                    \Log::warning("Upload assistance document local fallback: " . $fileErr->getMessage());
+                    $path = $file->store("assistance/{$code}", 'public');
+                    $fileUrl = url('storage/' . $path);
+                    $publicId = 'local_' . basename($path);
+                    $resourceType = 'local';
+                    $originalName = $file->getClientOriginalName();
+                }
 
                 AssistanceDocument::create([
                     'assistance_request_id' => $assistanceRequest->id,
                     'doc_key' => $docKeys[$idx] ?? ('doc_' . ($idx + 1)),
-                    'doc_label' => $docLabels[$idx] ?? $uploadResult['original_filename'],
-                    'file_url' => $uploadResult['secure_url'],
-                    'public_id' => $uploadResult['public_id'],
-                    'resource_type' => $uploadResult['resource_type'],
-                    'original_name' => $uploadResult['original_filename'],
+                    'doc_label' => $docLabels[$idx] ?? $originalName,
+                    'file_url' => $fileUrl,
+                    'public_id' => $publicId,
+                    'resource_type' => $resourceType,
+                    'original_name' => $originalName,
                     'mime_type' => $file->getClientMimeType(),
                 ]);
             }
@@ -435,13 +458,21 @@ class AssistanceRequestController extends Controller
 
         if ($request->hasFile('attachment') && $request->file('attachment')->isValid()) {
             $file = $request->file('attachment');
-            $uploadResult = $this->cloudinary->upload(
-                $file,
-                "sejour_bresil/assistance/{$assistanceRequest->tracking_code}/responses"
-            );
-            $assistanceRequest->admin_attachment_url = $uploadResult['secure_url'];
-            $assistanceRequest->admin_attachment_name = $uploadResult['original_filename'];
-            $assistanceRequest->admin_attachment_public_id = $uploadResult['public_id'];
+            try {
+                $uploadResult = $this->cloudinary->upload(
+                    $file,
+                    "sejour_bresil/assistance/{$assistanceRequest->tracking_code}/responses"
+                );
+                $assistanceRequest->admin_attachment_url = $uploadResult['secure_url'];
+                $assistanceRequest->admin_attachment_name = $uploadResult['original_filename'];
+                $assistanceRequest->admin_attachment_public_id = $uploadResult['public_id'];
+            } catch (\Throwable $respErr) {
+                \Log::warning("Admin response attachment fallback to local: " . $respErr->getMessage());
+                $path = $file->store("assistance/{$assistanceRequest->tracking_code}/responses", 'public');
+                $assistanceRequest->admin_attachment_url = url('storage/' . $path);
+                $assistanceRequest->admin_attachment_name = $file->getClientOriginalName();
+                $assistanceRequest->admin_attachment_public_id = 'local_' . basename($path);
+            }
         }
 
         $assistanceRequest->status = $validated['status'];

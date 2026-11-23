@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\DemarcheController;
 use App\Http\Controllers\Api\StatsController;
 use App\Http\Controllers\Api\StayController;
+use App\Http\Controllers\Api\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -26,7 +27,7 @@ Route::get('/health', function () {
 });
 
 // Authentification & Rôles (Admin & Utilisateur)
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login', [AuthController::class, 'login'])->name('login');
 Route::post('/user/email-login', [AuthController::class, 'emailLogin']);
 
 // Dépôt public d'une demande d'assistance (avec upload Cloudinary & paiement Stripe)
@@ -48,6 +49,13 @@ Route::middleware('auth:sanctum')->group(function () {
     // Espace Admin (Réception & Retours d'assistance)
     Route::get('/admin/assistance-requests', [AssistanceRequestController::class, 'adminIndex']);
     Route::post('/admin/assistance-requests/{id}/respond', [AssistanceRequestController::class, 'adminRespond']);
+
+    // Espace Admin (Gestion des utilisateurs)
+    Route::get('/admin/users', [UserController::class, 'adminIndex']);
+    Route::post('/admin/users', [UserController::class, 'store']);
+    Route::put('/admin/users/{id}', [UserController::class, 'update']);
+    Route::delete('/admin/users/{id}', [UserController::class, 'destroy']);
+    Route::post('/admin/users/{id}/toggle-role', [UserController::class, 'toggleRole']);
 });
 
 // Démarches administratives (CPF, Titre de séjour, etc.)
