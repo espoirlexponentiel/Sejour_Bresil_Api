@@ -501,7 +501,7 @@ class AssistanceRequestController extends Controller
     {
         $validated = $request->validate([
             'request_id' => 'required|integer',
-            'payment_method' => 'nullable|string|in:pix,card,flooz,tmoney',
+            'payment_method' => 'nullable|string|in:pix,card,flooz,tmoney,mixx',
             'stripe_payment_intent_id' => 'nullable|string|max:255',
             'card_last4' => 'nullable|string|max:4',
             'transaction_ref' => 'nullable|string|max:255',
@@ -515,31 +515,48 @@ class AssistanceRequestController extends Controller
         }
 
         $method = $validated['payment_method'] ?? 'pix';
-
-        if ($request->hasFile('proof_file') && $request->file('proof_file')->isValid()) {
-            $upload = $this->cloudinary->upload($request->file('proof_file'), "sejour_bresil/assistance/{$item->tracking_code}/payments");
-            $item->payment_proof_url = $upload['secure_url'];
-            $item->payment_proof_public_id = $upload['public_id'];
+        if ($method === 'mixx') {
+            $method = 'tmoney';
         }
 
-        if ($method === 'pix') {
-            $item->payment_method = 'pix';
-            if ($item->payment_status !== 'paid') {
-                $item->payment_status = 'awaiting_verification';
+        if ($request->hasFile('proof_file') && $request->file('proof_file')->isValid()) {
+            $file = $request->file('proof_file');
+            try {
+                $upload = $this->cloudinary->upload($file, "sejour_bresil/assistance/{$item->tracking_code}/payments");
+                $item->payment_proof_url = $upload['secure_url'];
+                $item->payment_proof_public_id = $upload['public_id'];
+            } catch (\Throwable $e) {
+                \Log::warning("Payment proof upload fallback to local: " . $e->getMessage());
+                $path = $file->store("assistance/{$item->tracking_code}/payments", 'public');
+                $item->payment_proof_url = url('storage/' . $path);
+                $item->payment_proof_public_id = 'local_' . basename($path);
             }
-        } elseif ($method === 'flooz' || $method === 'tmoney') {
-            $item->payment_method = $method;
+        }
+
+        $item->payment_method = $method;
+
+        if ($method === 'pix') {
             if ($item->payment_status !== 'paid') {
                 $item->payment_status = 'awaiting_verification';
             }
             if (!empty($validated['transaction_ref'])) {
                 $item->payment_reference = $validated['transaction_ref'];
             }
+        } elseif ($method === 'flooz' || $method === 'tmoney') {
+            if ($item->payment_status !== 'paid') {
+                $item->payment_status = 'awaiting_verification';
+            }
+            $refParts = [];
+            if (!empty($validated['transaction_ref'])) {
+                $refParts[] = 'Réf: ' . $validated['transaction_ref'];
+            }
             if (!empty($validated['phone_number'])) {
-                $item->notes = trim(($item->notes ? $item->notes . "\n" : '') . "Mobile Money ($method): " . $validated['phone_number']);
+                $refParts[] = 'Tél: ' . $validated['phone_number'];
+            }
+            if (!empty($refParts)) {
+                $item->payment_reference = implode(' | ', $refParts);
             }
         } elseif ($method === 'card') {
-            $item->payment_method = 'card';
             $item->payment_status = 'paid';
             if (!empty($validated['stripe_payment_intent_id'])) {
                 $item->stripe_payment_intent_id = $validated['stripe_payment_intent_id'];

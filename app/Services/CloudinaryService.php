@@ -14,9 +14,9 @@ class CloudinaryService
 
     public function __construct()
     {
-        $this->cloudName = (string) config('services.cloudinary.cloud_name');
-        $this->apiKey = (string) config('services.cloudinary.api_key');
-        $this->apiSecret = (string) config('services.cloudinary.api_secret');
+        $this->cloudName = (string) (config('services.cloudinary.cloud_name') ?: getenv('CLOUDINARY_CLOUD_NAME') ?: ($_ENV['CLOUDINARY_CLOUD_NAME'] ?? ($_SERVER['CLOUDINARY_CLOUD_NAME'] ?? '')));
+        $this->apiKey = (string) (config('services.cloudinary.api_key') ?: getenv('CLOUDINARY_API_KEY') ?: ($_ENV['CLOUDINARY_API_KEY'] ?? ($_SERVER['CLOUDINARY_API_KEY'] ?? '')));
+        $this->apiSecret = (string) (config('services.cloudinary.api_secret') ?: getenv('CLOUDINARY_API_SECRET') ?: ($_ENV['CLOUDINARY_API_SECRET'] ?? ($_SERVER['CLOUDINARY_API_SECRET'] ?? '')));
     }
 
     /**
