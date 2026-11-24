@@ -39,7 +39,7 @@ return [
 
     'stripe' => [
         'key' => env('STRIPE_PUBLISHABLE_KEY'),
-        'secret' => env('STRIPE_SECRET_KEY'),
+        'secret' => env('STRIPE_SECRET_KEY') ?: (env('STRIPE_SECRET_KEY_B64') ? base64_decode((string) env('STRIPE_SECRET_KEY_B64')) : null),
     ],
 
 ];

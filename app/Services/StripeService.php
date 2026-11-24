@@ -13,7 +13,15 @@ class StripeService
     public function __construct()
     {
         $this->publishableKey = (string) config('services.stripe.key');
-        $this->secretKey = (string) config('services.stripe.secret');
+
+        $secret = (string) config('services.stripe.secret');
+        if (empty($secret) || str_starts_with($secret, '$')) {
+            $secret = (string) env('STRIPE_SECRET_KEY', '');
+        }
+        if ((empty($secret) || str_starts_with($secret, '$')) && env('STRIPE_SECRET_KEY_B64')) {
+            $secret = (string) base64_decode((string) env('STRIPE_SECRET_KEY_B64'));
+        }
+        $this->secretKey = $secret;
     }
 
     public function getPublishableKey(): string
