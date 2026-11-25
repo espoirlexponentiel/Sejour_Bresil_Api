@@ -453,6 +453,7 @@ class AssistanceRequestController extends Controller
             'payment_status' => 'nullable|in:pending_payment,awaiting_verification,paid,refunded',
             'amount' => 'nullable|numeric|min:0',
             'admin_feedback' => 'nullable|string|max:5000',
+            'details' => 'nullable|string',
             'attachment' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:10240',
         ]);
 
@@ -482,6 +483,9 @@ class AssistanceRequestController extends Controller
         if (isset($validated['amount'])) {
             $assistanceRequest->amount = (float) $validated['amount'];
         }
+        if (isset($validated['details'])) {
+            $assistanceRequest->details = $validated['details'];
+        }
         $assistanceRequest->admin_feedback = $validated['admin_feedback'] ?? $assistanceRequest->admin_feedback;
         $assistanceRequest->responded_by = $user->id;
         $assistanceRequest->responded_at = now();
@@ -501,7 +505,7 @@ class AssistanceRequestController extends Controller
     {
         $validated = $request->validate([
             'request_id' => 'required|integer',
-            'payment_method' => 'nullable|string|in:pix,card,flooz,tmoney,mixx',
+            'payment_method' => 'nullable|string|in:pix,card,other,flooz,tmoney,mixx',
             'stripe_payment_intent_id' => 'nullable|string|max:255',
             'card_last4' => 'nullable|string|max:4',
             'transaction_ref' => 'nullable|string|max:255',
