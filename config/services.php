@@ -42,4 +42,10 @@ return [
         'secret' => env('STRIPE_SECRET_KEY') ?: (env('STRIPE_SECRET_KEY_B64') ? base64_decode((string) env('STRIPE_SECRET_KEY_B64')) : null),
     ],
 
+    'gateway' => [
+        'public_key' => env('GATEWAY_PUBLIC_KEY', 'PAY_PK_F657F32F98E0E45C9BEAE0EAE014CF4E'),
+        'secret_key' => env('GATEWAY_SECRET_KEY', 'PAY_SK_91930A5CF36509B1834482D87E2EB3237DD383A6CD0E7AA5'),
+        'url' => env('GATEWAY_API_URL', 'https://passerellepaiement.wasmer.app/api/v1'),
+    ],
+
 ];

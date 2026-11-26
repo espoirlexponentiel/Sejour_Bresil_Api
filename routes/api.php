@@ -35,6 +35,8 @@ Route::get('/payments/stripe/config', [AssistanceRequestController::class, 'stri
 Route::post('/payments/stripe/create-intent', [AssistanceRequestController::class, 'createStripeIntent']);
 Route::post('/assistance-requests', [AssistanceRequestController::class, 'store']);
 Route::post('/assistance-requests/confirm-payment', [AssistanceRequestController::class, 'confirmPayment']);
+Route::post('/payments/gateway/create', [AssistanceRequestController::class, 'createGatewaySession']);
+Route::post('/payments/gateway-webhook', [AssistanceRequestController::class, 'gatewayWebhook']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {

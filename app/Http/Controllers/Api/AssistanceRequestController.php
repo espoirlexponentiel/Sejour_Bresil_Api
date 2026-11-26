@@ -13,6 +13,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class AssistanceRequestController extends Controller
@@ -450,7 +452,7 @@ class AssistanceRequestController extends Controller
 
         $validated = $request->validate([
             'status' => 'required|in:pending,in_review,eligible_payment,action_required,completed,rejected',
-            'payment_status' => 'nullable|in:pending_payment,awaiting_verification,paid,refunded',
+            'payment_status' => 'nullable|in:pending_payment,awaiting_verification,paid,refunded,rejected',
             'amount' => 'nullable|numeric|min:0',
             'admin_feedback' => 'nullable|string|max:5000',
             'details' => 'nullable|string',
@@ -569,6 +571,25 @@ class AssistanceRequestController extends Controller
             if (!empty($validated['card_last4'])) {
                 $item->card_last4 = $validated['card_last4'];
             }
+        } elseif ($method === 'other' || $method === 'gateway') {
+            if (!empty($validated['transaction_ref'])) {
+                $item->payment_reference = $validated['transaction_ref'];
+            }
+            if ($request->input('payment_status') === 'paid') {
+                $item->payment_status = 'paid';
+                if ($request->has('admin_feedback')) {
+                    $item->admin_feedback = $request->input('admin_feedback') ?: null;
+                }
+            } elseif ($request->input('payment_status') === 'rejected') {
+                $item->payment_status = 'rejected';
+                if ($request->filled('admin_feedback')) {
+                    $item->admin_feedback = $request->input('admin_feedback');
+                }
+            } else {
+                if ($item->payment_status !== 'paid' && $item->payment_status !== 'rejected') {
+                    $item->payment_status = 'awaiting_verification';
+                }
+            }
         }
 
         $item->save();
@@ -579,4 +600,108 @@ class AssistanceRequestController extends Controller
             'data' => $item->fresh(['documents', 'demarche']),
         ]);
     }
+
+    /**
+     * Create hosted checkout session on Mobile Money gateway (passerellepaiement.wasmer.app).
+     */
+    public function createGatewaySession(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'request_id' => 'required|integer',
+            'return_url' => 'nullable|string',
+        ]);
+
+        $item = AssistanceRequest::find($validated['request_id']);
+        if (!$item) {
+            return response()->json(['success' => false, 'message' => 'Dossier introuvable.'], 404);
+        }
+
+        // Conversion en FCFA (XOF) : 1 BRL ≈ 110 FCFA (minimum 100 FCFA)
+        $rawAmountBrl = (float) ($item->amount > 0 ? $item->amount : 50.00);
+        $amountXof = max(100, (int) round($rawAmountBrl * 110));
+
+        $returnUrl = $validated['return_url'] ?? (config('app.url') . '/#paiement?gateway_status=return');
+        $webhookUrl = url('/api/payments/gateway-webhook');
+
+        $payload = [
+            'amount' => $amountXof,
+            'title' => "Dossier #{$item->tracking_code} - " . ($item->demarche_title ?? 'Séjour Brésil'),
+            'customer_name' => $item->full_name,
+            'customer_email' => $item->email,
+            'customer_phone' => $item->phone,
+            'return_url' => $returnUrl,
+            'webhook_url' => $webhookUrl,
+        ];
+
+        try {
+            $response = Http::withHeaders([
+                'X-Public-Key' => config('services.gateway.public_key', 'PAY_PK_F657F32F98E0E45C9BEAE0EAE014CF4E'),
+                'Content-Type' => 'application/json',
+            ])->timeout(15)->post(config('services.gateway.url', 'https://passerellepaiement.wasmer.app/api/v1') . '/payments/create', $payload);
+
+            if ($response->successful()) {
+                $resData = $response->json();
+                $ref = $resData['data']['reference'] ?? null;
+                if ($ref) {
+                    $item->payment_reference = $ref;
+                    $item->payment_method = 'other';
+                    $item->save();
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'data' => $resData['data'] ?? [],
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur de la passerelle de paiement : ' . ($response->json('message') ?? 'Échec de session.'),
+            ], 400);
+        } catch (\Throwable $e) {
+            Log::error("Gateway session creation failed: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Impossible de joindre la passerelle de paiement : ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Webhook receiver from passerellepaiement.wasmer.app upon payment success.
+     */
+    public function gatewayWebhook(Request $request): JsonResponse
+    {
+        $payload = $request->all();
+        Log::info("Gateway webhook received:", $payload);
+
+        $reference = $payload['reference'] ?? null;
+        $status = strtolower($payload['status'] ?? '');
+
+        if (!$reference) {
+            return response()->json(['success' => false, 'message' => 'Référence manquante.'], 400);
+        }
+
+        $item = AssistanceRequest::where('payment_reference', 'LIKE', "%{$reference}%")->first();
+        if ($item) {
+            $payMethod = strtoupper($payload['payment_method'] ?? 'MOBILE MONEY');
+            $txn = $payload['transaction_reference'] ?? '';
+            if ($status === 'paid' || ($payload['event'] ?? '') === 'payment.success') {
+                $item->payment_status = 'paid';
+                $item->payment_method = 'other';
+                $item->payment_reference = "{$reference} [{$payMethod}]" . ($txn ? " · Réf: {$txn}" : '');
+                $item->save();
+            } elseif ($status === 'rejected' || ($payload['event'] ?? '') === 'payment.rejected') {
+                $item->payment_status = 'rejected';
+                $item->payment_method = 'other';
+                $item->payment_reference = "{$reference} [{$payMethod}]" . ($txn ? " · Réf: {$txn}" : '');
+                $reason = $payload['rejection_reason'] ?? $payload['reason'] ?? $payload['message'] ?? "Le paiement via {$payMethod} n'a pas pu être validé (référence introuvable ou montant insuffisant).";
+                $item->admin_feedback = $reason;
+                $item->save();
+            }
+        }
+
+        return response()->json(['success' => true, 'message' => 'Webhook traité avec succès.']);
+    }
 }
+
